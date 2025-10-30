@@ -1,0 +1,496 @@
+[
+    {
+        "id": 0,
+        "title": "Cold metal",
+        "blocks": [
+            {"type": "p", "content": "As the machine is plugged to an AC there is always a conversion to a DC on rail **+5VSB** , this standby current is used keep some parts semi awake just so they can start properly at any moment the user want to turn the machine on."},
+            { "type": "p", "content": "<br/>the current powers some small chips :" },
+            { "type": "list", "content": [
+                "the motherboard power management controller (**EC**) (a tiny micro-controller always running)",
+                "BIOS/UEFI flash chip, powered but idle (sleepy)",
+                "USB ports",
+                "network card"
+            ]}
+        ],
+        "extra": [
+            {
+                "title": "+5VSB",
+                "blocks": [
+                    {"type": "p", "content": "5 Volts Stand-By power line from the PSU. It is always on as long as the PSU is connected to AC and its switch is on — even when the PC is off."},
+                    { "type": "p", "content": "<br/>Keeps a small part of the motherboard powered, mainly for:"},
+                    { "type": "list", "content": [
+                        "Power button detection (so pressing the button can wake the system).",
+                        "Wake events like keyboard, LAN (“Wake-on-LAN”), USB charging, etc.",
+                        "Embedded Controller (EC) or Power Management IC operation."
+                    ]}
+                ]
+            },
+            {
+                "title": "EC",
+                "blocks": [
+                    {"type": "p", "content": "A small microcontroller on the motherboard that handles power sequencing, thermal control, and keyboard/misc I/O (especially in laptops)."},
+                    { "type": "p", "content": "<br/>It's main job is :"},
+                    { "type": "list", "content": [
+                        "Watches for the power button press",
+                        "Sends signals to the Power Supply (PS_ON#) to turn on main rails (+12 V, +5 V, +3.3 V).",
+                        "Ensures correct power-good timing and voltage sequencing.",
+                        "May manage fan speed, battery charging, lid open/close, etc."
+                    ]}
+                ]
+            }
+
+        ]
+    },
+
+    {
+        "id": 3,
+        "title": "Power-on Sequence",
+        "blocks": [
+            {"type": "p", "content": "the start button is a switch that is connected to the EC and after beeing clicked, the motherboard power management controller or the EC catch up this press and sends a digital signal `PS_ON#` to the PSU (power supply unit)"},
+            { "type": "p", "content": "<br/>the PSU begins to generate full rails :" },
+            { "type": "list", "content": [
+                "`+12V` : fans , drivers , VRMs for CPU/GPU",
+                "`+5V` : logic circuits , RAM modules, USB",
+                "`+3.3V` : motherboard chipset , PCIe , strage logic"
+            ]},
+            { "type": "p", "content": "<br/>the Power management ICs and VRMs step down voltages for components: " },
+            { "type": "list", "content": [
+                "CPU cores (~1V).",
+                "RAM (~1.2V–1.5V).",
+                "Chipset (~1V).",
+                "The sequencing logic ensures correct power-up order."
+            ] }
+        ]
+    },
+    {
+        "id": 4,
+        "title": "Power-on Sequence",
+        "blocks": [
+            { "type": "p", "content": "Once power is good, the CPU is released from reset, which is the state it stays in until the power is stable enough to start execution." },
+            { "type": "p", "content": "<br/>As a first thing to do it always executes a predefined address the reset vector; which is mapped to the **BIOS/UEFI** firmware stored in the flash chip."}
+        ],
+        "extra": [
+            {
+                "title": "BIOS/UEFI",
+                "blocks": [
+                    { "type": "p", "content": "The firmware stored in a non-volatile chip (usually SPI flash) that initializes hardware when the CPU starts running."},
+                    { "type": "p", "content": "<br/>It initializes RAM, CPU, chipset, and devices, it loads the bootloader from storage"},
+                    { "type": "p", "content": "<br/>BIOS is generally used in older systems, UEFI in newer ones"}
+                ]
+            }
+        ]
+    },
+    {
+        "id": 5,
+        "title": "BIOS/UEFI",
+        "blocks": [
+            { "type": "p", "content": "The CPU immediately starts in a 16-bit real mode and tries to fetch the first instruction from a hard-coded address we call the **reset vector** `(0xFFFFFFF0)` "},
+            { "type": "p", "content": "<br/>This address doesn’t point to RAM, instead it is mapped to the **SPI flash chip** on the motherboard. At that location there is only a tiny piece of code (a jump stub) whose job is to redirect execution into the main body of the firmware stored in flash (UEFI or legacy BIOS)."}
+        ],
+        "extra": [
+            {
+                "title": "reset vector",
+                "blocks": [
+                    { "type": "p", "content": "A fixed memory address the CPU jumps to immediately after reset (power-on). And the reason of this is that The CPU doesn’t “know” where to start — this vector gives it a starting instruction."}
+                ]
+            },
+            {
+                "title": "SPI flash chip",
+                "blocks": [
+                    { "type": "p", "content": "A small non-volatile memory chip (usually 4 – 16 MB) that holds the BIOS/UEFI firmware. SPI = Serial Peripheral Interface, the communication protocol used between this chip and the chipset/CPU."}
+                ]
+            }
+        ]
+    },
+    {
+        "id": 6,
+        "title": "BIOS/UEFI",
+        "blocks": [
+            { "type": "p", "content": "Here the first phase of the execution starts; the **SEC** phase."},
+            { "type": "p", "content": "**SEC** immediately switches the CPU into protected mode (32-bit) because modern firmware are written in higher modes. At this point the DRAM controller is still offline, so the SEC reconfigures the CPU’s cache into “Cache-as-RAM” (CAR) mode. In **CAR mode** the CPU cache acts as a small temporary RAM area (non-evictable) so that early initialization can run."},
+            { "type": "p", "content": "<br/>At this moment only the CPU and chipset basics are running. The firmware may also unblock certain chipset regions so that DRAM can be probed." },
+            { "type": "p", "content": "<br/>(They were blocked for security + stability measures: it prevents the CPU from poking at memory controllers or uninitialized DRAM space too early.)" }
+        ],
+        "extra": [
+            {
+                "title": "SEC",
+                "blocks": [
+                    { "type": "p", "content": "The firmware’s earliest assembly code"},
+                    { "type": "p", "content": "<br/>It establish a temporary execution environment, Initialize temporary stack, Do very basic CPU & chipset init so code can continue. Verify firmware integrity, ocate and jump to the next phase → PEI."}
+                ]
+            },
+            {
+                "title": "CAR mode",
+                "blocks": [
+                    { "type": "p", "content": "A special technique used during early firmware stages (especially PEI) where the CPU cache (L1/L2) is temporarily used as RAM, since DRAM isn’t yet initialized."}
+                ]
+            }
+        ]
+    },
+    {
+        "id": 7,
+        "title": "BIOS/UEFI",
+        "blocks": [
+            { "type": "p", "content": "The second phase starts; **PEI** (Pre-EFI Initialization) Phase." },
+            { "type": "p", "content": "<br/>Once SEC has switched to CAR, the PEI modules take over. Their first job is to initialize the DRAM controller and discover the system memory configuration. A PEI module (PEIM) for main memory will set up the memory controller so that full DRAM is usable. Once DRAM is online, PEI winds down Cache-as-RAM and uses the new DRAM as system memory." },
+            { "type": "p", "content": "<br/>As soon as DRAM is available, PEI allocates a Hand-Off Block list (**HOBs**) in memory. These describe system state (memory layout, CPU state, firmware volumes, firmware device resources, etc.) that the next phase (DXE) will need."},
+            { "type": "p", "content": "<br/>PEI also performs basic chipset and platform initialization. PEI modules configure the CPU (microcode, caches), chipset bridges, PCI root complex, and other core devices (e.g. timers, low-level I/O). In short, PEI brings up enough hardware so that DXE can enumerate buses and devices." }
+        ],
+        "extra": [
+            {
+                "title": "PEI",
+                "blocks": [
+                    { "type": "p", "content": "Prepare enough of the system to load more complex drivers and proceed to DXE."},
+                    { "type": "p", "content": "<br/>It initializes main system DRAM, Discover and initialize basic chipset and CPU services. Build a HOB list. Locate and load the DXE phase image into RAM."}
+                ]
+            },
+            {
+                "title": "HOBs",
+                "blocks": [
+                    { "type": "p", "content": "A linked list of data structures that describe all information collected during PEI, handed over to DXE."},
+                    { "type": "p", "content": "System memory map, Firmware volume info, CPU info, Boot mode, stack info, etc."}
+                ]
+            }
+        ]
+    },
+    {
+        "id": 8,
+        "title": "BIOS/UEFI",
+        "blocks": [
+            { "type": "p", "content": "The third phase starts; **DXE** (Driver eXecution Environment) Phase." },
+            { "type": "p", "content": "<br/>When PEI finishes initializing memory and devices, it locates the DXE Foundation (DXE Core) via a handoff PPI and passes the HOB list to it. At this point DXE begins executing in 64-bit long mode. The HOB list in memory tells DXE what hardware is present and where to find firmware volumes." },
+            { "type": "p", "content": "<br/>The DXE Core (dispatcher) scans the firmware flash volumes for DXE driver modules and executes them in order."},
+            { "type": "p", "content": "<br/>These drivers complete the hardware init begun in PEI; it will enumerate PCI buses, load storage and network controllers, install drivers for disk controllers (SATA, NVMe, SCSI, etc.), network adapters, USB controllers, etc. It also loads file system and partition drivers (crucially a FAT file system driver to read the EFI system partition). It initializes boot device drivers and supporting protocols so the system can load an OS." },
+            { "type": "p", "content": "<br/>In short, by the end of DXE all major hardware needed for boot (memory, disk, PCI, timers, etc.) is up and running." }
+        ],
+        "extra": [
+            {
+                "title": "DXE",
+                "blocks": [
+                    { "type": "p", "content": "Initialize all remaining hardware and build the complete UEFI service environment."}
+                ]
+            }
+        ]
+    },
+    {
+        "id": 9,
+        "title": "BIOS/UEFI",
+        "blocks": [
+            { "type": "p", "content": "The fourth phase starts: **BDS** (Boot Device Selection) Phase." },
+            { "type": "p", "content": "<br/>Once all DXE drivers have run and Boot Services are ready, the firmware enters the Boot Device Selection stage. Here the built-in UEFI Boot Manager uses the data in non-volatile variables to pick and launch an OS loader."},
+            { "type": "p", "content": "<br/>The Boot Manager reads the global BootOrder NVRAM variable, which lists a sequence of boot options (`Boot####` entries). Each `Boot####` variable (also in NVRAM/flash) contains a description, a device path (disk and partition), and a file path to an **EFI executable**. "},
+            { "type": "p", "content": "<br/>When the firmware reaches the Boot Device Selection (BDS) stage, it looks at every disk and checks its partition table (**GPT**). It tries to find the partition marked as an **EFI System Partition (ESP)**. "},
+            { "type": "p", "content": "<br/>Once it finds it, the firmware uses a FAT32 file system driver (which was loaded earlier during the DXE phase) to read the files stored there. This is how the Boot Manager can access bootloaders (like `bootx64.efi` and other files on the ESP."}
+        ],
+        "extra": [
+            {
+                "title": "BDS",
+                "blocks": [
+                    { "type": "p", "content": "Choose and start a boot option (OS loader, network boot, etc.)."},
+                    { "type": "p", "content": "<br/>used for :"},
+                    { "type": "list", "content": [
+                        "It reads the UEFI boot variables (like BootOrder, `Boot####` entries).",
+                        "It initializes console input/output (keyboard, screen).",
+                        "It loads the selected EFI executable (like a bootloader) from a device (disk, USB, PXE, etc.).",
+                        "It transfers control to it."
+                    ]}
+                    
+                ]
+            },
+            {
+                "title": "EFI executable",
+                "blocks": [
+                    { "type": "p", "content": "A program built in the Portable Executable (PE/COFF) format (like Windows .exe), but compiled for UEFI."},
+                    { "type": "p", "content": "<br/>used for :"},
+                    { "type": "list", "content": [
+                        "Bootloaders (e.g. grubx64.efi, bootmgfw.efi).",
+                        "Tools (like UEFI Shell utilities).",
+                        "Drivers (UEFI runtime drivers)."
+                    ]}
+                ]
+            },
+            {
+                "title": "GPT",
+                "blocks": [
+                    { "type": "p", "content": "A modern disk partitioning scheme defined as part of the UEFI specification (replaces MBR)"}
+                ]
+            },
+            {
+                "title": "EFI System Partition (ESP)",
+                "blocks": [
+                    { "type": "p", "content": "A special partition (on GPT disks) that stores UEFI boot files"}
+                ]
+            }
+        ]
+    },
+    {
+        "id": 10,
+        "title": "BIOS/UEFI",
+        "blocks": [
+            { "type": "p", "content": "The Boot Manager goes through the list of boot options in BootOrder. For each option, it looks inside the EFI System Partition (ESP) and tries to load the .EFI file specified there."},
+            { "type": "p", "content": "<br/>Behind the scenes, it calls two firmware services:" },
+            { "type": "list", "content": [
+                    "`LoadImage()` → loads the <span class='code'>.EFI` program (in PE/COFF format) into memory and prepares it.",
+                    "`StartImage()` → actually runs that program."
+                ]},
+            {"type": "p", "content": "<br/>Examples of what it might load:"},
+            { "type": "list", "content": [
+                    "`\\EFI\\boot\\BOOTX64.EFI` (the default fallback)",
+                    "`\\EFI\\Ubuntu\\shimx64.efi` (for Secure Boot)",
+                    "`\\EFI\\Grub\\grubx64.efi` (GRUB bootloader)"
+                ] },
+            { "type": "p", "content": "<br/>If there are multiple boot options, the firmware usually shows a Boot Manager menu so the user can pick." }
+        ]
+    },
+    {
+        "id": 11,
+        "title": "BootLoader",
+        "blocks": [
+            { "type": "p", "content": "when the bootloader is executed it only runs a tiny piece of itself (**.efi binary files**). It acts as the entry point of the and it's main job is to find the real files and configurations files of the boot loader which in general is GRUB" },
+            { "type": "p", "content": "<br/>that **EFI application** brings with it it's own small drivers which we call modules (like `part_gpt`, `fat`, `ext4`, `gzio` ...etc), for being able to read from the disk and from the filesystem itself. and for that it uses `insmod <module>` to load them. Modules live either embedded in the EFI binary or on disk under GRUB’s folder and are loaded into RAM." }
+        ],
+        "extra": [
+            {
+                "title": ".efi binary files",
+                "blocks": [
+                    { "type": "p", "content": "A .efi file is a binary executable that follows the UEFI specification. It’s the format that the UEFI firmware can directly load and execute."}
+                ]
+            },
+            {
+                "title": "EFI application",
+                "blocks": [
+                    { "type": "p", "content": "An EFI application is any program compiled for and executed within the UEFI environment — that is, it’s a .efi binary that uses UEFI Boot Services and Runtime Services"}
+                ]
+            }
+        ]
+    },
+    {
+        "id": 12,
+        "title": "BootLoader",
+        "blocks": [
+            { "type": "p", "content": "after loading some modules, GRUB sets up a minimal console to print menu and read keyboard inputs" },
+            { "type": "p", "content": "<br/>so following some tiny script inside the `.efi` binary file the program finds the location of the configurations files, generally using the variable `prefix` by giving it a quick path name of where the target is and using a `search` command which search by the UUID" },
+            { "type": "list", "content": [
+                "`set prefix=(hdX,gptY)/boot/grub`",
+                "`search --fs-uuid --set=root <UUID>`"
+            ] },
+            { "type": "p", "content": "<br/>after that Grub loads the `normal` modules that would let him read the config file `grub.cfg`" },
+            { "type": "code", "content": "" },
+            { "type": "span", "content": "  " },
+            { "type": "code", "content": "" }
+        ]
+    },
+    {
+        "id": 13,
+        "title": "BootLoader",
+        "blocks": [
+            { "type": "p", "content": "`grub.cfg` is a script-like file composed of many commands. that Grub follows to successfully load the kernel and let him know how to act with the user inputs" },
+            { "type": "p", "content": "<br/>a typical grub configuration may contain :" },
+            { "type": "list", "content": [
+                "`insmod` command to load modules",
+                "a `set` (gives the probable disk name of where the root file system is )",
+                "a `search` (same as the `set` command but uses UUID)",
+                "a `linux` command which tells grub where is the kernel or what kernel to load if there was many (like `/boot/vmlinuz`) and configures the kernel variables like `ro` and `root`",
+                "`initrd` that tells GRUB which initial RAM filesystem (initramfs) to load into RAM."
+            ] }
+        ]
+    },
+    {
+        "id": 14    ,
+        "title": "BootLoader",
+        "blocks": [
+            { "type": "p", "content": "so GRUB reads the kernel file from disk using its filesystem drivers and copies it into free RAM. It reads the initramfs file (a big compressed archive) that acts a temporary root filesystem or you may say a temporary toolbox that helps the kernel in the initial phases." },
+            { "type": "p", "content": "<br/>GRUB also assembles the kernel command line (combining what’s in `grub.cfg` and any distro defaults)" }
+        ]
+    },
+
+    {
+        "id": 15,
+        "title": "BootLoader",
+        "blocks": [
+            { "type": "p", "content": "Before giving control to the kernel, GRUB sets up the CPU registers (architecture-specific) with:" },
+            {
+                "type": "list",
+                "content": [
+                    "pointer to the kernel entry point",
+                    "pointer to the initramfs location",
+                    "pointer or address of the kernel command line",
+                    "(on EFI systems) some info about the firmware or EFI memory map if needed"
+                ]
+            },
+            { "type": "p", "content": "<br/>at this point GRUB calls `ExitBootServices()` which tells UEFI to end/stop its services, then it performs a CPU jump to the kernel entry address — from now on the kernel takes the lead."}
+        ]
+    },
+
+
+    {
+        "id": 16,
+        "title": "Kernel",
+        "blocks": [
+            { "type": "p", "content": "the CPU starts executing the kernel’s setup code. On x86 this begins in the `arch/x86/boot` code (e.g. `start_of_setup` in real mode, then `head_32.S` or `head_64.S`). If the kernel image is compressed, this stub runs a tiny decompressor." },
+            { "type": "p", "content": "<br/>That code moves the compressed image up in memory, decompresses it (for example using `gzip` or `LZ4`) , and then jumps to the newly uncompressed kernel image in its proper location. (The details vary by architecture, but conceptually a small boot stub unpacks the kernel.)" },
+            { "type": "p", "content": "<br/>Once decompression is done, execution lands at the kernel’s entry point (`startup_32` or `startup_64`), and the real C code boot process begins"}
+        ]
+    },
+    {
+        "id": 17,
+        "title": "Kernel",
+        "blocks": [
+            { "type": "p", "content": "After that, the kernel performs basic low-level setup. On x86_64, this happens in `head_64.S` and its companion C function `x86_64_start_kernel()` " },
+            { "type": "p", "content": "<br/>The very first steps include setting up initial page tables and CPU descriptors (`GDT/IDT` ) for the kernel’s address space. Early page table entries are created so that the kernel’s code and data (linked at high virtual addresses) become accessible. The kernel also detects the system memory map (on BIOS it calls `INT 15h/E820` BIOS calls, on UEFI it reads the firmware’s memory map).<br/> <br/>" },
+            {
+                "type": "list",
+                "content": [
+                "+memblock allocator+ to reserve critical regions (like where the kernel lives, initramfs location, etc.).",
+                "It sets up memory zones (DMA, normal, highmem) and initializes the page allocator and slab allocators (SLAB/SLUB) for dynamic memory allocation."
+                ]
+            }
+        ]
+    },
+    {
+        "id": 18,
+        "title": "Kernel",
+        "blocks": [
+            { "type": "p", "content": "The C-level `start_kernel()` runs and does the heavy lifting in order:" },
+            {
+                "type": "list",
+                "content": [
+                "initialize console & logging (so kernel messages appear on screen / serial)",
+                "initialize basic kernel data structures (page allocator, slab allocators)",
+                "initialize the scheduler (so tasks can be scheduled)",
+                "set up RCU, interrupts, timers",
+                "initialize device bus code (PCI, platform buses) so devices can be discovered later."
+                ]
+            },
+            { "type": "codeblock", "content": [
+                "Freeing unused kernel memory: 2408K",
+                "Write protecting the kernel read-only data: 20480k",
+                "Freeing unused kernel memory: 2008K"
+            ]},
+            { "type": "p", "content": "<br/>+These mean:+ kernel frees temporary memory used during boot and protects its read-only data. (Later kernels also log `Run /init as init process` when handing to init.)"}
+        ]
+    },
+    {
+        "id": 19,
+        "title": "Kernel",
+        "blocks": [
+            { "type": "p", "content": "Early in `start_kernel()`, the kernel parses the boot command line provided by GRUB. Boot parameters like `root=`, `ro / rw`, `quiet`, ...etc, are parsed by core kernel code. Unrecognized parameters  are passed to the first user-space process (init) as arguments or environment variables . "},
+            { "type": "p", "content": "<br/>The kernel automatically mounts the initramfs (the one that grub loaded with it) as a temporary root filesystem (using a `tmpfs/ramfs)` . It then extracts the archive into that in-memory root ( `rootfs` )."},
+            { "type": "p", "content": "<br/>Immediately after extracting `initramfs.cpio` , the kernel checks for an `/init` program inside it . If `/init` exists, the kernel makes it the first user-space process (PID 1) by forking and executing it."},
+            { "type": "p", "content": "<br/>This initial `/init` is typically a shell script or a small init program (in systemd-based systems it’s often a minimal init that eventually runs systemd). This initramfs `/init` runs as root and is responsible for loading any required kernel modules, discovering disks, and preparing the real root filesystem."}
+        ]
+    },
+    {
+        "id": 20,
+        "title": "Kernel",
+        "blocks": [
+            {"type": "p", "content": "Once the initramfs `/init` (PID 1) has done its setup, it must switch the system to use the “real” root filesystem. The real root device was specified on the command line (e.g. `root=/dev/sda2` ), /init will mount that device (often under a temporary mount point like `/newroot` ). "},
+            {"type": "p", "content": "<br/>after this it will `cd` into it, and use `switch_root` or an equivalent  example:  `exec switch_root /newroot /sbin/init` which replaces the running initramfs process with the real root’s `init` . After switch, the kernel (or the new process) runs `/sbin/init` from the real root. On modern distros `/sbin/init` is `systemd`."},
+            {"type": "p", "content": "<br/>+note+ : If no initramfs is used, the kernel itself directly tries to mount the root filesystem during boot. It uses the `root=` parameter and the boot device information passed by GRUB. In that case, after doing early setup and resolving root device, the kernel’s `mount_root()` code mounts the specified root (, and then the kernel forks and execs `/sbin/init` from that root."}
+        ]
+    },
+    {
+        "id": 21,
+        "title": "Kernel",
+        "blocks": [
+            { "type": "p", "content": "While all this is happening, the kernel is also probing hardware. Built-in (statically compiled) drivers and bus code (like `PCI`, `USB`, `SATA`) scan the system during boot. For each device found, the kernel creates a device object and populates `sysfs` entries."},
+            { "type": "p", "content": "<br/>It then emits a `uevent` for that device. In user-space, the `udev` daemon listens for these `uevents` over a `netlink` socket and reacts to them. Typically, `udev` will read the device’s `modalias` (an identifier string) and automatically run `modprobe` to load the matching driver module for any device not already handled"}
+        ]
+    },
+    {
+        "id": 23,
+        "title": "Kernel",
+        "blocks": [
+            { "type": "p", "content": "After the real root filesystem is in place and device nodes exist, the kernel proceeds to start the first user-space process which is `/sbin/init` (systemd)"}
+        ]
+    },
+    {
+        "id": 23,
+        "title": "Init",
+        "blocks": [
+            { "type": "p", "content": "The main object that systemd works with are known as units. Systemd doesn't just stop and start services, it can mount file-systems, monitor your network sockets, etc and because of that robustness it has different types of units it operates."},
+            { "type": "p", "content": "<br/> The most common units are:"},
+            { "type": "list", "content": [
+                "+Service units+ : these are the services we've been starting and stopping, these unit files end in `.service`",
+                "+Mount units+ : These mount file-systems, these unit files end in `.mount`",
+                "+Target units+ : These group together other units, the files end in `.target`",
+                "+Socket units+ : there represent incoming network connection request locations"
+            ]}
+        ]
+    },
+    {
+        "id": 23,
+        "title": "Init",
+        "blocks": [
+            { "type": "p", "content": "the kernel just launched the init process which is systemd in modern machines, so as the first action of systemd , it it immediately loads unit files from several directories."},
+            { "type": "p", "content": "<br/>+Generators+ which are small programs run by systemd converts dynamic data like `/etc/fstab`, kernel command-line, container configs, or EFI boot data) into unit files in `/run/systemd/system`. which makes them available to the dependency graph before activation begins."},
+            { "type": "p", "content": "<br/>inside each unit we would find keywords that describe their relationships with other units (dependencies , ordering ..etc) such as `Requires=`, `Wants=`, `After=`, `Before=`, `Conflicts=`, `Requisite=`."},
+            { "type": "p", "content": "<br/>Systemd reads all unit files and constructs a directed dependency graph."}
+        ]
+    },
+    {
+        "id": 23,
+        "title": "Init",
+        "blocks": [
+            { "type": "p", "content": "systemd tries to start many things in parallel where possible. However some services are logically first because other units depend on them:"},
+            { "type": "list", "content": [
+                "`systemd-journald.service` (journaling/logging): Captures kernel messages and early user-space messages. Brought up very early so everything gets logged.",
+                "`systemd-udevd.service` / `systemd-udev-trigger` (device manager) : `udevd` receives kernel device events and creates `/dev` nodes.",
+                "`systemd-tmpfiles-setup.service`: Creates necessary directories under `/run`, `/var`, `/tmp` with correct modes.",
+                "`systemd-random-seed.service`, `systemd-sysusers.service`: Load saved entropy and create system users/groups described by packages."
+            ]},
+            { "type": "p", "content": "<br/>These early units are started to create a usable runtime environment for the rest of the boot."},
+            { "type": "p", "content": "<br/>+Note+: `udev` often runs with `DefaultDependencies=no` so it can start _before_ the main `sysinit` synchronization — that ensures devices are available early."}
+        ]
+    },
+    {
+        "id": 23,
+        "title": "Init",
+        "blocks": [
+            { "type": "p", "content": "With `sysinit.target`, systemd performs essential low-level setup before most services run. Key steps include:"},
+            { "type": "list", "content": [
+                "+Mount local filesystems and swap+: `systemd-fsck` and `fstab` generators mount the root and other local partitions ( l`ocal-fs.target` ) and enable swap ( `swap.target` ) . Any required encrypted volumes are unlocked under `cryptsetup.target`<br/><br/>",
+                "+Populate /dev and process device events+: `systemd-udevd` and its sockets start very early (recall `DefaultDependencies=no` ) so that all hardware devices appear under `/dev` and trigger any necessary rules .<br/><br/>",
+                "+Create runtime directories+: `systemd-tmpfiles-setup.service` reads `tmpfiles` configuration and (re)creates directories under `/run` , `/tmp` , `/var` , etc., ensuring permissions and files are correct  .<br/><br/>",
+                "+Initialize random seed and users+: Services like `systemd-random-seed` and `systemd-sysusers` load any saved entropy and add system users/groups as needed.<br/><br/>",
+                "+Start journaling+: `systemd-journald` is up to capture early log messages (kernel and init messages) into binary journal files. <br/><br/>"
+            ]},
+            { "type": "p", "content": "<br/>Once these tasks finish, `sysinit.target` is reached, meaning core initialization is done. At this point all local disks are mounted, device nodes are ready, temporary directories exist, and logging is active."}
+        ]
+    },
+    {
+        "id": 23,
+        "title": "Init",
+        "blocks": [
+            { "type": "p", "content": "`basic.target`: This target waits for service socket, timer, and path units to be activated. For example, `timers.target` triggers any scheduled job units, `paths.target` activates file-path watchers, and `sockets.target` ensures all socket-activated services (like D-Bus or SSH sockets) are listening. `basic.target` is simply a synchronization point; once it’s reached, all these foundational activation points are in place."}
+        ]
+    },
+    {
+        "id": 23,
+        "title": "Init",
+        "blocks": [
+            { "type": "p", "content": "`multi-user.target`: Often corresponding to the old `runlevel 3` (non-graphical multi-user), this target pulls in the remaining system services."},
+            { "type": "p", "content": "<br/>It includes +networking services+, +printing+, +login prompts on TTYs+ (`getty@.service` units spawn login prompts on virtual consoles (`tty1`..`tty6`), +cron+, +databases+ and other background daemons. Any unit that is needed in a normal multi-user (non-GUI) boot is typically` WantedBy=multi-user.target`"},
+            { "type": "p", "content": "<br/>In other words, after `multi-user.target` is active, the system is fully functional in text mode with multiple users able to log in on consoles or via the network."}
+        ]
+    },
+    {
+        "id": 23,
+        "title": "Init",
+        "blocks": [
+            { "type": "p", "content": "If the default target is graphical (as on a desktop), systemd then proceeds to `graphical.target`."},
+            { "type": "p", "content": "<br/>This special target is a superset of `multi-user.target` that also requires a display manager. By convention, distributions create a generic `display-manager.service` unit which is symlinked to the actual DM (for example, `gdm.service` for GNOME, or `sddm.service` for KDE) . When `graphical.target` is reached, systemd starts this display-manager service. "},
+            { "type": "p", "content": "<br/>The display manager then initializes the graphical stack: it starts the +X.Org+ server or a +Wayland+ compositor and loads the greeter program. Once that is up, the graphical login screen appears"}
+        ]
+    },
+    {
+        "id": 23,
+        "title": "Init",
+        "blocks": [
+            { "type": "p", "content": "Once `graphical.target` is active and the login screen is displayed, systemd considers the boot sequence complete."},
+            { "type": "p", "content": "<br/>On additional thing is that for some advanced handling, systemd provides a `boot-complete.target` (since version 240) as a synchronization point for any services that should only run after a successful boot."}
+        ]
+    }
+
+
+]
